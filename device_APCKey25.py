@@ -461,9 +461,6 @@ class LedControl():
 				colorCode = 1
 			self.sendMidiCommand(note, colorCode)
 
-	def setLedOff(self, note):
-		self.sendMidiCommand(note, 0)
-
 	def killAllLights(self):
 		self.killRightSideLights()
 		self.killGridLights()
