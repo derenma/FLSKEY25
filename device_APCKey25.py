@@ -295,16 +295,14 @@ class MidiInHandler():
 				action = noteFunc[1]
 				if (noteFunc[0] == "notHandled" and event.data1 != shiftButton and controllerMode != ctrlUser):
 					event.handled = True
-				#elif (event.midiId == midi.MIDI_NOTEOFF):
-				elif (event.midiId == midiNOTE_OFF):
+				elif (event.midiId == midi.MIDI_NOTEOFF):
 					event.handled = True
 					if (event.data1 == shiftButton):
 						shiftModifier = 0
 					elif (actionType == "ReleaseAction" and shiftModifier == 0):
 						self.callAction(actionType, action, event.data1)
 						event.handled = True
-				#elif (event.midiId == midi.MIDI_NOTEON):
-				elif (event.midiId == midiNOTE_ON):
+				elif (event.midiId == midi.MIDI_NOTEON):
 					event.handled = True
 					if (event.data1 == shiftButton):
 						shiftModifier = 1
