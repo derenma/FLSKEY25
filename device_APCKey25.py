@@ -155,6 +155,7 @@ class MidiInHandler():
 		#12,13,14,15,16,17,18,19
 		#24,25,26,27,28,29,30,31
 		#36,37,38,39,40,41,42,43
+		#48,49,50,51,52,53,54,55
 		
 		self.map = {}
 		self.map[0] = 48
@@ -429,7 +430,6 @@ class LedControl():
 	def ledOn(self, pad, color, brightness):
 		# 0 - Dimmest
 		# 6 - Brightest
-		print(f"ledOn: {pad}")
 		if pad >= 0 and pad <=40:
 			device.midiOutMsg((self.ledOnCode + brightness) + (pad << 8) + (color << 16))
 		else:
