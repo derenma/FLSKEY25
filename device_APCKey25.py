@@ -57,10 +57,6 @@ green = 1
 red = 3
 yellow = 5
 
-#Custom MIDI ids
-midiNOTE_ON = 144
-midiNOTE_OFF = 128
-
 # Versions?
 #APCKeyVersion = 1 # MK1
 APCKeyVersion = 2  # MK2
@@ -267,6 +263,10 @@ class MidiInHandler():
 	def OnMidiMsg(self, event):
 		global shiftModifier
 
+		#Custom MIDI ids
+		midiNOTE_ON = 144
+		midiNOTE_OFF = 128
+
 		# Map our input midi key to our new position
 		try:
 			event.data1 = self.map[event.data1]
@@ -295,14 +295,16 @@ class MidiInHandler():
 				action = noteFunc[1]
 				if (noteFunc[0] == "notHandled" and event.data1 != shiftButton and controllerMode != ctrlUser):
 					event.handled = True
-				elif (event.midiId == midi.MIDI_NOTEOFF):
+				#elif (event.midiId == midi.MIDI_NOTEOFF):
+				elif (event.midiId == midiNOTE_OFF):
 					event.handled = True
 					if (event.data1 == shiftButton):
 						shiftModifier = 0
 					elif (actionType == "ReleaseAction" and shiftModifier == 0):
 						self.callAction(actionType, action, event.data1)
 						event.handled = True
-				elif (event.midiId == midi.MIDI_NOTEON):
+				#elif (event.midiId == midi.MIDI_NOTEON):
+				elif (event.midiId == midiNOTE_ON):
 					event.handled = True
 					if (event.data1 == shiftButton):
 						shiftModifier = 1
@@ -346,6 +348,7 @@ class ShiftAction():
 
 	def changeMode(self, ctrlMode, note):
 		global controllerMode
+		print(f"controllerMode: {controllerMode}")
 		ledCtrl = LedControl()
 		ledCtrl.killAllLights()
 		controllerMode = ctrlMode
@@ -357,13 +360,13 @@ class ReleaseAction():
 		if (controllerMode == ctrlTransport):
 			transport.fastForward(0)
 			ledCtrl = LedControl()
-			ledCtrl.setLedOff(note)
+			ledCtrl.ledOff(note)
 			msg("fastForward off")
 	def releaseRewind(self, note):
 		if (controllerMode == ctrlTransport):
 			transport.rewind(0)
 			ledCtrl = LedControl()
-			ledCtrl.setLedOff(note)
+			ledCtrl.ledOff(note)
 			msg("rewind off")
 
 #Handle actions that will be independent of selected mode.
@@ -428,14 +431,16 @@ class LedControl():
 	def ledOn(self, pad, color, brightness):
 		# 0 - Dimmest
 		# 6 - Brightest
+		print(f"ledOn: {pad}")
 		if pad >= 0 and pad <=40:
 			device.midiOutMsg((self.ledOnCode + brightness) + (pad << 8) + (color << 16))
 		else:
 			debug(f"ledOn : Invalid pad number sent: {pad}")
 
 	def ledOff(self, pad):
-		if pad >= 0 and pad <=40:
-			device.midiOutMsg(self.ledOnCode + (pad << 8) + (0 << 16))
+		if (pad >= 0 and pad <=40) or (pad >= 82 and pad <= 87) or (pad >= 64 and pad <= 72):
+			self.sendMidiCommand(pad, 0)
+			#device.midiOutMsg(self.ledOnCode + (pad << 8) + (0 << 16))
 		else:
 			debug(f"PadOff: Invalid pad number sent: {pad}")
 
@@ -456,6 +461,9 @@ class LedControl():
 				colorCode = 1
 			self.sendMidiCommand(note, colorCode)
 
+	def setLedOff(self, note):
+		self.sendMidiCommand(note, 0)
+
 	def killAllLights(self):
 		self.killRightSideLights()
 		self.killGridLights()
@@ -467,10 +475,12 @@ class LedControl():
 
 	def killUnderLights(self):
 		for i in range(64, 72):
+			#print(f"killing lights {i}")
 			self.ledOff(i)
 
 	def killGridLights(self):
 		for i in range(40):
+			#print(f"killing lights {i}")
 			self.ledOff(i)
 
 	def sendMidiCommand(self, note, colorCode):
