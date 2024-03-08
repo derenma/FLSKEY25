@@ -20,6 +20,8 @@
 #				 :		- Added mappings for LEDs as well as pad controls
 #                : There is a *ton* of debug/info lines in this code. Will remove after beta
 #                : Controls to the right and bottom of the pads have NOT been mapped yet
+#  03/03/2024    : Fixed SoftKey LEDS
+#				 : Mapped SoftKeys to OFF per row
 #				 : TODO:
 #				 :		- Clean and refactor for brevity (It's still a wierd mix of two different scripts..)
 #				 :		- Map the rest of the controls
@@ -85,7 +87,9 @@ class InitClass():
 		#set global transport mode
 		msg("Welcome Friends!")
 		shiftAction = ShiftAction()
-		shiftAction.setTransportMode(82) #need to set the note manually, since no note was actually played.
+		# Set inital mode to usermode
+		#shiftAction.setTransportMode(82) #need to set the note manually, since no note was actually played.
+		shiftAction.setUserMode(81)
 
 class KnobHandler():
 	def __init__(self):
@@ -142,7 +146,10 @@ class MidiInHandler():
 		self.mapPadFunction = []
 		self.inPerformanceMode = False
 		self.knobs = KnobHandler()
-		
+
+		self.padToggle = True
+		print(f"0 pad toggle: {self.padToggle}")
+
 		# Real
 		#32,33,34,35,36,37,38,39
 		#24,25,26,27,28,29,30,31
@@ -209,6 +216,7 @@ class MidiInHandler():
 	def OnMidiIn(self, event):
 		if event.data1 < 56 and event.data1 > 47:
 			event = self.knobs.adjust(event)
+
 		debug(f"OnMidiIn:")
 		debug(f"  - controlNum: {event.controlNum}")
 		debug(f"  - controlVal: {event.controlVal}")
@@ -268,11 +276,46 @@ class MidiInHandler():
 		midiNOTE_ON = 144
 		midiNOTE_OFF = 128
 
+		# Real
+		#32,33,34,35,36,37,38,39
+		#24,25,26,27,28,29,30,31
+		#16,17,18,19,20,21,22,23
+		#08,09,10,11,12,13,14,15
+		#00,01,02,03,04,05,06,07
+
+		# Mapped
+	#Off#08		
+		#00,01,02,03,04,05,06,07
+	#Off#20
+		#12,13,14,15,16,17,18,19
+	#Off#32
+		#24,25,26,27,28,29,30,31
+	#Off#44	
+		#36,37,38,39,40,41,42,43
+	#off#56
+		#48,49,50,51,52,53,54,55
+
 		# Map our input midi key to our new position
 		try:
 			event.data1 = self.map[event.data1]
 		except KeyError:
 			pass
+
+		# Map our stop buttons for each row (SoftKeys)
+		if event.data1 == 82 and event.data2 == 127:
+				event.data1 = 8
+
+		if event.data1 == 83 and event.data2 == 127:
+				event.data1 = 20
+
+		if event.data1 == 84 and event.data2 == 127:
+				event.data1 = 32
+
+		if event.data1 == 85 and event.data2 == 127:
+				event.data1 = 44
+
+		if event.data1 == 86 and event.data2 == 127:
+				event.data1 = 56
 
 		# If for some reason you need to evaluate each mapping, enable this
 		#
@@ -282,13 +325,20 @@ class MidiInHandler():
 		#		info(f"******* Key {int(event.data1)} Mapped to: {val}")
 		#		event.data1 = map[val]
 
+		# Mapped
+		#00,01,02,03,04,05,06,07
+		#12,13,14,15,16,17,18,19
+		#24,25,26,27,28,29,30,31
+		#36,37,38,39,40,41,42,43
+		#48,49,50,51,52,53,54,55
+
 		debug(playlist.getTrackActivityLevel(1))
 		info( f"DEVICE: Controller Mode: {str(controllerMode)}")
 		msg(  f"DEVICE:  Key/Note - {str(event.data1)} - Value: {str(event.data2)}")
 		debug(f"DEVICE:   Key Val - {str(event.data2)}")
 		debug(f"DEVICE:   MidiCH  - {str(event.midiChan)}")
 		debug(f"DEVICE:   MidiID  - {str(event.midiId)}")
-		
+
 		if (event.midiChan == 0 and event.pmeFlags and midi.PME_System != 0): # MidiChan == 0 --> To not interfere with notes played on the keybed
 			noteFuncList = self.noteDict(event.data1)
 			for noteFunc in noteFuncList:
@@ -343,7 +393,7 @@ class ShiftAction():
 
 	def setUserMode(self, note):
 			self.changeMode(ctrlUser, note)
-			msg("FUNCTION: User Mode set")
+			msg(f"FUNCTION: User Mode set {note}")
 
 	def changeMode(self, ctrlMode, note):
 		global controllerMode
@@ -418,19 +468,19 @@ class LedControl():
 		if self.PrevBeat == 0:
 			if self.PrevBeat != value:
 				# bar/beat off -> on
-				self.ledOn(7, 50, 6)
+				self.ledOn(68, 50, 6)
 				self.PrevBeat = value
 		else:
 			if self.PrevBeat != value:
 				if value == 0:
 					#bar/beat on -> off
-					self.ledOff(7)
+					self.ledOff(68)
 				self.PrevBeat = value
 
 	def ledOn(self, pad, color, brightness):
 		# 0 - Dimmest
 		# 6 - Brightest
-		if pad >= 0 and pad <=40:
+		if (pad >= 0 and pad <=40) or (pad >= 82 and pad <= 87) or (pad >= 64 and pad <= 72):
 			device.midiOutMsg((self.ledOnCode + brightness) + (pad << 8) + (color << 16))
 		else:
 			debug(f"ledOn : Invalid pad number sent: {pad}")
@@ -502,6 +552,8 @@ class PerformanceMode:
 			self.firstRun = False
 			print("**** Live Mode Init!")
 
+
+		print(f"Updated value: {value}")
 		debug(f"-----------------------------------------------")
 		debug(" Patterns")
 		if debug:
@@ -515,10 +567,10 @@ class PerformanceMode:
 		debug(f"(selected) getPatternName: {patterns.getPatternName(num)}")
 		debug(f"(selected) getPatternColor: {patterns.getPatternColor(num)}")
 
-		if debug:
-			for a in range(1, 10):
-				debug(f"{a}.0.getLiveStatus: {str(playlist.getLiveStatus(a,0))}")
-				debug(f"{a}.1.getLiveStatus: {str(playlist.getLiveStatus(a,1))}")
+		#if debug:
+		#	for a in range(1, 10):
+		#		debug(f"{a}.0.getLiveStatus: {str(playlist.getLiveStatus(a,0))}")
+		#		debug(f"{a}.1.getLiveStatus: {str(playlist.getLiveStatus(a,1))}")
 		
 		debug("-----------------------------------------------")
 		debug(" Tracks")
@@ -530,16 +582,16 @@ class PerformanceMode:
 		debug(f"getLiveTriggerMode: {playlist.getLiveTriggerMode(trackNum)}")
 		debug(f"getLivePosSnap: {playlist.getLivePosSnap(trackNum)}")
 		debug(f"getLiveTrigSnap: {playlist.getLiveTrigSnap(trackNum)}")
-		debug(f"getLiveStatus: {playlist.getLiveStatus(trackNum)}")
+		#debug(f"getLiveStatus: {playlist.getLiveStatus(trackNum)}")
 
 		# idx      = top -> bottom
 		# blocknum = left -> right
 		for idx in range(1, 6):
 			for blockNum in range(0, 8):
 				active = playlist.getLiveBlockStatus(idx,blockNum,0)
-				debug(f"{idx}.{blockNum}.0.getLiveBlockStatus: {playlist.getLiveBlockStatus(idx,blockNum,0)}")
+				#debug(f"{idx}.{blockNum}.0.getLiveBlockStatus: {playlist.getLiveBlockStatus(idx,blockNum,0)}")
 				if active:
-					debug(f"{idx},{blockNum},{self.pos[idx][blockNum]}")
+					#debug(f"{idx},{blockNum},{self.pos[idx][blockNum]}")
 					if active == 7:
 						self.led.ledOn(self.pos[idx][blockNum], 30, 6)
 					else:
@@ -549,8 +601,8 @@ class PerformanceMode:
 				#print(f"{idx}.{blockNum}.1.getLiveBlockStatus:", playlist.getLiveBlockStatus(idx,blockNum,1))
 				#print(f"{idx}.{blockNum}.2.getLiveBlockStatus:", playlist.getLiveBlockStatus(idx,blockNum,2))
 		
-		debug(f"getLiveBlockColor: {int(playlist.getLiveBlockColor(trackNum,0))}")
-		debug(f"OnUpdateLiveMode: {value} changed")
+		#print(f"getLiveBlockColor: {int(playlist.getLiveBlockColor(trackNum,0))}")
+		#print(f"OnUpdateLiveMode: {value} changed")
 
 start = InitClass()
 midiIn = MidiInHandler()
@@ -584,6 +636,7 @@ def OnIdle():
 	#print(f"OnIdle: Active")
 
 def OnMidiMsg(event):
+	print(f"outside: {midiIn.padToggle}")
 	midiIn.OnMidiMsg(event)
 
 def OnMidiIn(event):
