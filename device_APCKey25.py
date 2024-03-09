@@ -20,13 +20,30 @@
 #				 :		- Added mappings for LEDs as well as pad controls
 #                : There is a *ton* of debug/info lines in this code. Will remove after beta
 #                : Controls to the right and bottom of the pads have NOT been mapped yet
-#  03/03/2024    : Fixed SoftKey LEDS
+#  03/06/2024    : Fixed SoftKey LEDS
 #				 : Mapped SoftKeys to OFF per row
-#				 : TODO:
-#				 :		- Clean and refactor for brevity (It's still a wierd mix of two different scripts..)
-#				 :		- Map the rest of the controls
-# 				 :		- ??
-#				 :		- Profit?
+#  09/06/2024    : Cleanup - Round one
+#				 : 
+# -------------------------------
+# Pad Mapping for this controller
+		# Real
+		#32,33,34,35,36,37,38,39
+		#24,25,26,27,28,29,30,31
+		#16,17,18,19,20,21,22,23
+		#08,09,10,11,12,13,14,15
+		#00,01,02,03,04,05,06,07
+
+		# Mapped
+	#Off#08		
+		#00,01,02,03,04,05,06,07
+	#Off#20
+		#12,13,14,15,16,17,18,19
+	#Off#32
+		#24,25,26,27,28,29,30,31
+	#Off#44	
+		#36,37,38,39,40,41,42,43
+	#off#56
+		#48,49,50,51,52,53,54,55
 
 # This import section is loading the back-end code required to execute the script. You may not need all modules that are available for all scripts.
 import transport
@@ -82,6 +99,7 @@ def msg(message):
 class InitClass():
 	def __init__(self):
 		print("Actual Init.")
+		print(f"MIDI: {dir(patterns)}")
 
 	def startTheShow(self):
 		#set global transport mode
@@ -91,13 +109,14 @@ class InitClass():
 		#shiftAction.setTransportMode(82) #need to set the note manually, since no note was actually played.
 		shiftAction.setUserMode(81)
 
+# Knobs can report back 1 OR 127, depending on if they are moving up or down.
+# We intercept the event data, store a position and de/increment as needed
 class KnobHandler():
 	def __init__(self):
 		self.knobs = {}
 
 		for a in range(47, 56):
 			self.knobs[a] = 1
-		pass
 
 	def adjust(self, event):
 		knob = event.data1
@@ -113,6 +132,7 @@ class KnobHandler():
 
 		return(event)
 
+# This can be used to get all of your controller information
 class DeviceHandler():
 	def __init__(self):
 		debug("Device Info:")
@@ -149,20 +169,6 @@ class MidiInHandler():
 
 		self.padToggle = True
 		print(f"0 pad toggle: {self.padToggle}")
-
-		# Real
-		#32,33,34,35,36,37,38,39
-		#24,25,26,27,28,29,30,31
-		#16,17,18,19,20,21,22,23
-		#08,09,10,11,12,13,14,15
-		#00,01,02,03,04,05,06,07
-
-		# Mapped
-		#00,01,02,03,04,05,06,07
-		#12,13,14,15,16,17,18,19
-		#24,25,26,27,28,29,30,31
-		#36,37,38,39,40,41,42,43
-		#48,49,50,51,52,53,54,55
 		
 		self.map = {}
 		self.map[0] = 48
@@ -210,13 +216,15 @@ class MidiInHandler():
 		self.map[38] = 6
 		self.map[39] = 7
 
-	#'controlNum', 'controlVal', 'data1', 'data2', 'handled', 'inEv', 'isIncrement',
-	#'midiChan', 'midiChanEx', 'midiId', 'note', 'outEv', 'pitchBend', 'pmeFlags',
-	#'port', 'pressure', 'progNum', 'res', 'senderId', 'status', 'sysex'
-	def OnMidiIn(self, event):
-		if event.data1 < 56 and event.data1 > 47:
-			event = self.knobs.adjust(event)
+	def debugKeyPress(self, event):
+		debug(playlist.getTrackActivityLevel(1))
+		info( f"DEVICE: Controller Mode: {str(controllerMode)}")
+		msg(  f"DEVICE:  Key/Note - {str(event.data1)} - Value: {str(event.data2)}")
+		debug(f"DEVICE:   Key Val - {str(event.data2)}")
+		debug(f"DEVICE:   MidiCH  - {str(event.midiChan)}")
+		debug(f"DEVICE:   MidiID  - {str(event.midiId)}")
 
+	def debugMidiIn(self, event):
 		debug(f"OnMidiIn:")
 		debug(f"  - controlNum: {event.controlNum}")
 		debug(f"  - controlVal: {event.controlVal}")
@@ -245,7 +253,15 @@ class MidiInHandler():
 		debug(f"  - status: {event.status}")
 		debug(f"  - sysex: {event.sysex}")
 
-		
+	def OnMidiIn(self, event):
+		if event.data1 < 56 and event.data1 > 47:
+			event = self.knobs.adjust(event)
+
+		self.debugKeyPress(event)
+		self.debugMidiIn(event)
+
+	# TODO: This functionalty is good, but may not simplify scripting as intended.
+	# 		I'll think on this for a bit...
 	# dictionary mapping 
 	def noteDict(self, i):
 		#dictionary with list of tuples for mapping note to class and method
@@ -272,36 +288,9 @@ class MidiInHandler():
 	def OnMidiMsg(self, event):
 		global shiftModifier
 
-		#Custom MIDI ids
-		midiNOTE_ON = 144
-		midiNOTE_OFF = 128
-
-		# Real
-		#32,33,34,35,36,37,38,39
-		#24,25,26,27,28,29,30,31
-		#16,17,18,19,20,21,22,23
-		#08,09,10,11,12,13,14,15
-		#00,01,02,03,04,05,06,07
-
-		# Mapped
-	#Off#08		
-		#00,01,02,03,04,05,06,07
-	#Off#20
-		#12,13,14,15,16,17,18,19
-	#Off#32
-		#24,25,26,27,28,29,30,31
-	#Off#44	
-		#36,37,38,39,40,41,42,43
-	#off#56
-		#48,49,50,51,52,53,54,55
-
-		# Map our input midi key to our new position
-		try:
-			event.data1 = self.map[event.data1]
-		except KeyError:
-			pass
-
 		# Map our stop buttons for each row (SoftKeys)
+		# TODO: Add check for controller mode. These keys need to be opened up to their
+		#		normal functions when not in Performance Mode
 		if event.data1 == 82 and event.data2 == 127:
 				event.data1 = 8
 
@@ -317,6 +306,14 @@ class MidiInHandler():
 		if event.data1 == 86 and event.data2 == 127:
 				event.data1 = 56
 
+		# Map our input midi key to our new position
+		# Due to the nature of when this method is called, mappings
+		# may or may not exist.
+		try:
+			event.data1 = self.map[event.data1]
+		except KeyError:
+			pass
+
 		# If for some reason you need to evaluate each mapping, enable this
 		#
 		#info("Pad Remapping ***")
@@ -324,20 +321,6 @@ class MidiInHandler():
 		#	if event.data1 == val:
 		#		info(f"******* Key {int(event.data1)} Mapped to: {val}")
 		#		event.data1 = map[val]
-
-		# Mapped
-		#00,01,02,03,04,05,06,07
-		#12,13,14,15,16,17,18,19
-		#24,25,26,27,28,29,30,31
-		#36,37,38,39,40,41,42,43
-		#48,49,50,51,52,53,54,55
-
-		debug(playlist.getTrackActivityLevel(1))
-		info( f"DEVICE: Controller Mode: {str(controllerMode)}")
-		msg(  f"DEVICE:  Key/Note - {str(event.data1)} - Value: {str(event.data2)}")
-		debug(f"DEVICE:   Key Val - {str(event.data2)}")
-		debug(f"DEVICE:   MidiCH  - {str(event.midiChan)}")
-		debug(f"DEVICE:   MidiID  - {str(event.midiId)}")
 
 		if (event.midiChan == 0 and event.pmeFlags and midi.PME_System != 0): # MidiChan == 0 --> To not interfere with notes played on the keybed
 			noteFuncList = self.noteDict(event.data1)
@@ -467,13 +450,11 @@ class LedControl():
 		CcIdTempo = 0x2F
 		if self.PrevBeat == 0:
 			if self.PrevBeat != value:
-				# bar/beat off -> on
 				self.ledOn(68, 50, 6)
 				self.PrevBeat = value
 		else:
 			if self.PrevBeat != value:
 				if value == 0:
-					#bar/beat on -> off
 					self.ledOff(68)
 				self.PrevBeat = value
 
@@ -520,12 +501,10 @@ class LedControl():
 
 	def killUnderLights(self):
 		for i in range(64, 72):
-			#print(f"killing lights {i}")
 			self.ledOff(i)
 
 	def killGridLights(self):
 		for i in range(40):
-			#print(f"killing lights {i}")
 			self.ledOff(i)
 
 	def sendMidiCommand(self, note, colorCode):
@@ -543,21 +522,14 @@ class PerformanceMode:
 		self.pos.append([16,17,18,19,20,21,22,23])
 		self.pos.append([8,  9,10,11,12,13,14,15])
 		self.pos.append([0,  1, 2, 3, 4, 5, 6, 7])
-		
+
 		# If script restart, this should update the LEDs
 		self.OnUpdateLiveMode(0)
 
-	def OnUpdateLiveMode(self, value):
-		if self.firstRun == True:
-			self.firstRun = False
-			print("**** Live Mode Init!")
-
-
-		print(f"Updated value: {value}")
+	def debugLiveMode(self, value):
 		debug(f"-----------------------------------------------")
 		debug(" Patterns")
-		if debug:
-			num = patterns.patternNumber()
+		if debug: num = patterns.patternNumber()
 		debug(f"patternMax: {patterns.patternMax()}")
 		debug(f"patternCount: {patterns.patternCount()}")
 		debug(f"(selected) patternNumber: {num}")
@@ -571,18 +543,23 @@ class PerformanceMode:
 		#	for a in range(1, 10):
 		#		debug(f"{a}.0.getLiveStatus: {str(playlist.getLiveStatus(a,0))}")
 		#		debug(f"{a}.1.getLiveStatus: {str(playlist.getLiveStatus(a,1))}")
-		
-		debug("-----------------------------------------------")
-		debug(" Tracks")
-		trackNum = 1
-		debug(f"isTrackSelected: {playlist.isTrackSelected(trackNum)}")
-		debug(f"trackCount: {int(playlist.trackCount())}")
-		debug(f"getTrackName: {playlist.getTrackName(trackNum)}")
-		debug(f"getLiveLoopMode: {playlist.getLiveLoopMode(trackNum)}")
-		debug(f"getLiveTriggerMode: {playlist.getLiveTriggerMode(trackNum)}")
-		debug(f"getLivePosSnap: {playlist.getLivePosSnap(trackNum)}")
-		debug(f"getLiveTrigSnap: {playlist.getLiveTrigSnap(trackNum)}")
-		#debug(f"getLiveStatus: {playlist.getLiveStatus(trackNum)}")
+		#debug("-----------------------------------------------")
+		#debug(" Tracks")
+		#trackNum = 1
+		#debug(f"isTrackSelected: {playlist.isTrackSelected(trackNum)}")
+		#debug(f"trackCount: {int(playlist.trackCount())}")
+		#debug(f"getTrackName: {playlist.getTrackName(trackNum)}")
+		#debug(f"getLiveLoopMode: {playlist.getLiveLoopMode(trackNum)}")
+		#debug(f"getLiveTriggerMode: {playlist.getLiveTriggerMode(trackNum)}")
+		#debug(f"getLivePosSnap: {playlist.getLivePosSnap(trackNum)}")
+		#debug(f"getLiveTrigSnap: {playlist.getLiveTrigSnap(trackNum)}")
+
+	def OnUpdateLiveMode(self, value):
+		if self.firstRun == True:
+			self.firstRun = False
+			print("Performance Mode Init!")
+
+		self.debugLiveMode(value)
 
 		# idx      = top -> bottom
 		# blocknum = left -> right
@@ -631,9 +608,9 @@ def OnNoteOn(event):
 def OnNoteOff(event):
 	debug(f"OnNoteOff: {event}")
 
-def OnIdle():
-	pass
-	#print(f"OnIdle: Active")
+# Uncommenting this will likely eat a cycle or two.
+#def OnIdle():
+#	pass
 
 def OnMidiMsg(event):
 	print(f"outside: {midiIn.padToggle}")
