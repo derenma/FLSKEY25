@@ -12,6 +12,7 @@
 #                  Mode switching now using shift modifier.
 # 08/05/2020 0.07: fastForward/rewind implemented using transport.fastForward/transport.rewind
 #                  kill LEDs when exiting FL Studio
+# ---------------------------------------------------------------
 #  3/06/2024 0.10: Reworked most of the LED controls
 #				 : Added better knob control (no longer jumps from 1 to 127)
 #                : Performance mode scripting added! (No color changes as of yet)
@@ -20,9 +21,9 @@
 #				 :		- Added mappings for LEDs as well as pad controls
 #                : There is a *ton* of debug/info lines in this code. Will remove after beta
 #                : Controls to the right and bottom of the pads have NOT been mapped yet
-#  03/06/2024    : Fixed SoftKey LEDS
+#  03/07/2024    : Fixed SoftKey LEDS
 #				 : Mapped SoftKeys to OFF per row
-#  09/06/2024    : Cleanup - Round one
+#  03/09/2024    : Cleanup - Round one
 #				 : 
 # -------------------------------
 # Pad Mapping for this controller
